@@ -1,0 +1,102 @@
+using System.Collections.Generic;
+using NUnit.Framework;
+using UnityEngine;
+
+public static class PositionConverter
+{
+    public static int Compression(int x, int y, int size)
+    {
+        return x + y * size;
+    }
+
+    public static (int, int) Expansion(int node, int size)
+    {
+        int x = node % size;
+        int y = node / size;
+        return (x, y);
+    }
+}
+
+
+public class UnionFind
+{
+    private int[] parent;
+    private int[] height;
+
+    public UnionFind(int size)
+    {
+        parent = new int[size];
+        height = new int[size];
+
+        for (int i = 0; i < size; ++i)
+        {
+            parent[i] = i;
+            height[i] = 0;
+        }
+    }
+
+    private int Find(int node)
+    {
+        //부모가 자신이라는 뜻은 가장 상위 노드라는 뜻이다.
+        if (node == parent[node]) return node;
+        return parent[node] = Find(parent[node]); //각각 노드들은 부모를 가리키고 있으므로 재귀함수로 구현가능
+    }
+
+    public void Union(int a, int b)
+    {
+        int A = Find(a);
+        int B = Find(b);
+
+        //같은 소속이면 그냥 리턴
+        if (A == B) return;
+        //높이가 낮은 트리를 높은 트리로 편입
+        if (height[A] < height[B])
+        {
+            //A의 최상단 부모를 B로 지정한다 = A를 B아래에 편입
+            parent[A] = B;
+        }
+        else if (height[A] > height[B])
+        {
+            parent[B] = A;
+        }
+        else
+        {
+            //높이가 같으면 B를 A에 편입시키고 높이를 1상승
+            parent[B] = A;
+            height[B]++;
+        }
+    }
+
+    //A와 B가 같은 소속인지 판별하는 변수
+    public bool IsMember(int A, int B)
+    {
+        return Find(A) == Find(B);
+    }
+}
+
+
+public class GameManager : MonoBehaviour
+{
+    [SerializeField] private int _size;
+
+    private List<List<int>> _grid;
+    private UnionFind _unionInfo;
+
+    private void Awake()
+    {
+        _grid = new List<List<int>>();
+        _unionInfo = new UnionFind(_size);
+    }
+
+    // Start is called once before the first execution of Update after the MonoBehaviour is created
+    void Start()
+    {
+        
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+        
+    }
+}
