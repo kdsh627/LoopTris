@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Xml.Serialization;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -11,33 +12,48 @@ public static class PositionConverter
 
     public static (int, int) Expansion(int node, int size)
     {
-        int x = node % size;
-        int y = node / size;
+        int x = ExpansionX(node, size);
+        int y = ExpansionY(node, size);
         return (x, y);
+    }
+
+    public static int ExpansionX(int node, int size)
+    {
+        int x = node % size;
+        return x;
+    }
+
+    public static int ExpansionY(int node, int size)
+    {
+        int y = node / size;
+        return y;
     }
 }
 
 
 public class UnionFind
 {
+    int size;
+
     private int[] parent;
     private int[] height;
 
     public UnionFind(int size)
     {
+        this.size = size;
         parent = new int[size];
         height = new int[size];
 
         for (int i = 0; i < size; ++i)
         {
             parent[i] = i;
-            height[i] = 0;
+            height[i] = 1;
         }
     }
 
     private int Find(int node)
     {
-        //부모가 자신이라는 뜻은 가장 상위 노드라는 뜻이다.
+        //부모가 자신이라는 뜻은 루트 노드라는 뜻
         if (node == parent[node]) return node;
         return parent[node] = Find(parent[node]); //각각 노드들은 부모를 가리키고 있으므로 재귀함수로 구현가능
     }
@@ -49,8 +65,35 @@ public class UnionFind
 
         //같은 소속이면 그냥 리턴
         if (A == B) return;
+
+        //각 그래프의 루트가 맵 양끝에 존재하는가 판별
+        bool isEdgeA = (A % size == 0 || (A+1) % size == 0);
+        bool isEdgeB = (B % size == 0 || (B+1) % size == 0);
+
+        if (isEdgeA && isEdgeB)
+        {
+            //이러면 터뜨려야함
+        }
+
+        //최우선으로 양끝단에 있는 노드가 무조건 루트가 됨
+        if(isEdgeA)
+        {
+            parent[A] = B;
+            if(height[A] == height[B])
+            {
+                height[A]++;
+            }
+        }
+        else if(isEdgeB)
+        {
+            parent[B] = A;
+            if (height[A] == height[B])
+            {
+                height[B]++;
+            }
+        }
         //높이가 낮은 트리를 높은 트리로 편입
-        if (height[A] < height[B])
+        else if (height[A] < height[B])
         {
             //A의 최상단 부모를 B로 지정한다 = A를 B아래에 편입
             parent[A] = B;
@@ -72,8 +115,42 @@ public class UnionFind
     {
         return Find(A) == Find(B);
     }
+
+    public void Remove(int node)
+    {
+        parent[node] = node;
+        height[node] = 1;
+    }
 }
 
+public struct Node
+{
+    
+}
+
+public class Graph
+{
+    int size;
+    private List<List<int>> _grid;
+
+    public Graph(int size)
+    {
+        this.size = size;
+        _grid = new List<List<int>>(size);
+    }
+
+    public void Add(int node, int sub)
+    {
+        _grid[node].Add(sub);
+        _grid[sub].Add(node);
+    }
+
+    public void Clear(int node, int sub)
+    {
+        _grid.Clear();
+        _grid = new List<List<int>>(size);
+    }
+}
 
 public class GameManager : MonoBehaviour
 {
