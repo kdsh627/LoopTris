@@ -1,7 +1,11 @@
 using Cysharp.Threading.Tasks;
 using DG.Tweening;
+using Grid;
+using NUnit;
+using Unity.Mathematics;
 using Unity.VisualScripting;
 using UnityEngine;
+using VContainer;
 
 public class Block : MonoBehaviour
 {
@@ -10,7 +14,20 @@ public class Block : MonoBehaviour
     [SerializeField] private float _rotateDuration;
     [SerializeField] private Vector3 _rotateAngle;
     [SerializeField] private bool isRotate;
+    [SerializeField] private bool isMove;
+
+    [SerializeField] private float _horizontalMoveDuration;
+    [SerializeField] private float _verticalMoveDuration;
+    [SerializeField] private GridManager _gridManager;
+
     private Transform _transform;
+
+    [Inject]
+    public void Construct(GridManager gridManager)
+    {
+        // Block이 생성되자마자 GridManager 인스턴스가 주입
+        _gridManager = gridManager;
+    }
 
     public void Awake()
     {
@@ -36,5 +53,52 @@ public class Block : MonoBehaviour
                   .SetRelative(true)
                   .ToUniTask(cancellationToken: this.destroyCancellationToken);
         isRotate = false;
+    }
+
+    public void Move(MoveDirection direction)
+    {
+        if (isMove) return;
+
+        isMove = true;
+
+        switch (direction)
+        {
+            case MoveDirection.Left:
+            case MoveDirection.Right:
+                Vector2 position = _transform.position;
+                if (_gridManager.isMovable(direction, ref position))
+                {
+                    HorizontalMove_Task(position.x).Forget();
+;                }
+                else
+                {
+                    isMove = false;
+                }
+                break;
+            case MoveDirection.Down:
+
+                break;
+            default:
+                return;
+        }
+    }
+
+    public async UniTaskVoid HorizontalMove_Task(float moveAmount)
+    {
+        await _transform.DOMoveX(moveAmount, _horizontalMoveDuration)
+            .SetEase(Ease.InOutCirc)
+            .ToUniTask(cancellationToken: this.destroyCancellationToken);
+
+        isMove = false;
+    }
+
+    public async UniTaskVoid VerticalMove_Task(Transform transform, float moveAmount)
+    {
+        await transform.DOMoveX(moveAmount, _horizontalMoveDuration)
+            .SetEase(Ease.InOutCirc)
+            .SetRelative(true)
+            .ToUniTask(cancellationToken: this.destroyCancellationToken);
+
+        isMove = false;
     }
 }

@@ -1,3 +1,4 @@
+using Grid;
 using UnityEngine;
 
 public class GrabController : MonoBehaviour
@@ -20,6 +21,14 @@ public class GrabController : MonoBehaviour
         {
             RotateBlock();
         }
+        else if (Input.GetKeyDown(KeyCode.D))
+        {
+            MoveController(MoveDirection.Right);
+        }
+        else if (Input.GetKeyDown(KeyCode.A))
+        {
+            MoveController(MoveDirection.Left);
+        }
     }
 
     public void SetBlock(Transform blockTransform)
@@ -32,5 +41,10 @@ public class GrabController : MonoBehaviour
     public void RotateBlock()
     {
         _block.Rotate().Forget();
+    }
+
+    public void MoveController(MoveDirection moveDirection)
+    {
+        _block.Move(moveDirection);
     }
 }
