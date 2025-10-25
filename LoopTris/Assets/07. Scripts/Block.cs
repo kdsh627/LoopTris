@@ -4,6 +4,7 @@ using Grid;
 using NUnit;
 using Unity.Mathematics;
 using Unity.VisualScripting;
+using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 using VContainer;
 
@@ -29,6 +30,11 @@ public class Block : MonoBehaviour
         _gridManager = gridManager;
     }
 
+    public ConnectDirection GetConnectInfo()
+    {
+        return _blockData.Connect(_rotateCount);
+    }
+
     public void Awake()
     {
         _transform = GetComponent<Transform>();
@@ -41,6 +47,7 @@ public class Block : MonoBehaviour
 
     private void OnDisable()
     {
+
     }
 
     public async UniTaskVoid Rotate()
@@ -52,6 +59,8 @@ public class Block : MonoBehaviour
                   .SetEase(Ease.OutCirc)
                   .SetRelative(true)
                   .ToUniTask(cancellationToken: this.destroyCancellationToken);
+
+        _rotateCount += 1;
         isRotate = false;
     }
 
@@ -66,7 +75,7 @@ public class Block : MonoBehaviour
             case MoveDirection.Left:
             case MoveDirection.Right:
                 Vector2 position = _transform.position;
-                if (_gridManager.isMovable(direction, ref position))
+                if (_gridManager.IsMovable(direction, ref position))
                 {
                     HorizontalMove_Task(position.x).Forget();
 ;                }

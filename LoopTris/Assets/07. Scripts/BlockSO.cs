@@ -1,6 +1,8 @@
+using System;
 using UnityEngine;
 
-public enum Direction
+[Flags]
+public enum ConnectDirection
 { 
     Top = 0b0001,
     Right = 0b0010,
@@ -13,15 +15,15 @@ public class BlockSO : ScriptableObject
 {
     [SerializeField] private bool[] Connection;
 
-    public int Connect(int count)
+    public ConnectDirection Connect(int count)
     {
-        int info = 0;
+        ConnectDirection info = 0b000;
         int start = count % 4;
         for (int i = start; i < 4; i++)
         {
             if(Connection[i])
             {
-                info |= (1 << i);
+                info |= (ConnectDirection)(1 << i);
             }
         }
 

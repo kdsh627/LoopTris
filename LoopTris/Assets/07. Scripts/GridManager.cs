@@ -1,7 +1,11 @@
+using System.Collections.Generic;
+using System.Drawing;
 using Cysharp.Threading.Tasks;
 using DG.Tweening;
 using UnityEngine;
 using UnityEngine.UIElements;
+using static Unity.Collections.AllocatorManager;
+using static UnityEngine.InputManagerEntry;
 
 namespace Grid
 {
@@ -12,74 +16,42 @@ namespace Grid
         Down,
         Top
     }
-    public class GridManager : MonoBehaviour
-    {
-        [SerializeField] private Transform _transform;
-        [SerializeField] private float _gridWidth;
-        [SerializeField] private float _gridHeight;
-
-        private int[] dx = new int[4] { -1, 1, 0, 0 };
-        private int[] dy = new int[4] { 0, 0, -1, 1 };
-
-        public float GridWidth => _gridWidth;
-        public float GridHeight => _gridHeight;
-        private float startX => _transform.position.x;
-        private float startY => _transform.position.y;
-        private float endX => _transform.position.x + _gridWidth;
-        private float endY => _transform.position.y + _gridHeight;
-
-        public bool isMovable(MoveDirection direction, ref Vector2 position)
-        {
-            position.x += dx[(int)direction];
-            position.y += dy[(int)direction];
-
-            Debug.Log(position.x);
-            if (position.x >= (startX + 1) && position.x <= (endX - 2) && position.y >= startY && position.y <= endY)
-            {
-                Debug.Log("통과");
-                return true;
-            }
-            return false;
-        }
-    }
-
-
     public static class PositionConverter
     {
-        public static int Compression(int x, int y, int size)
+        public static int Compression(int x, int y, int width)
         {
-            return x + y * size;
+            return x + y * width;
         }
 
-        public static (int, int) Expansion(int node, int size)
+        public static (int, int) Expansion(int node, int width)
         {
-            int x = ExpansionX(node, size);
-            int y = ExpansionY(node, size);
+            int x = ExpansionX(node, width);
+            int y = ExpansionY(node, width);
             return (x, y);
         }
 
-        public static int ExpansionX(int node, int size)
+        public static int ExpansionX(int node, int width)
         {
-            int x = node % size;
+            int x = node % width;
             return x;
         }
 
-        public static int ExpansionY(int node, int size)
+        public static int ExpansionY(int node, int width)
         {
-            int y = node / size;
+            int y = node / width;
             return y;
         }
     }
 
-
     public class UnionFind
     {
         int size;
+        int width;
 
         private int[] parent;
         private int[] height;
 
-        public UnionFind(int size)
+        public UnionFind(int size, int width)
         {
             this.size = size;
             parent = new int[size];
@@ -108,8 +80,8 @@ namespace Grid
             if (A == B) return;
 
             //각 그래프의 루트가 맵 양끝에 존재하는가 판별
-            bool isEdgeA = (A % size == 0 || (A + 1) % size == 0);
-            bool isEdgeB = (B % size == 0 || (B + 1) % size == 0);
+            bool isEdgeA = (A % width == 0 || (A + 1) % width == 0);
+            bool isEdgeB = (B % width == 0 || (B + 1) % width == 0);
 
             if (isEdgeA && isEdgeB)
             {
@@ -161,6 +133,140 @@ namespace Grid
         {
             parent[node] = node;
             height[node] = 1;
+        }
+    }
+
+    public class Graph
+    {
+        private List<List<int>> _graphList;
+        private int _size;
+        private UnionFind _unionFind;
+
+        public List<List<int>> GraphList => _graphList;
+
+        public Graph(int size, int width)
+        {
+            _size = size;
+            _graphList = new List<List<int>>(size);
+            _unionFind = new UnionFind(size, width);
+        }
+
+        public void Append(int fromPoint, int toPoint)
+        {
+            _graphList[fromPoint].Add(toPoint);
+            _graphList[toPoint].Add(fromPoint);
+            _unionFind.Union(fromPoint, toPoint);
+        }
+
+        public void Clear()
+        {
+            _graphList.Clear();
+            _graphList = new List<List<int>>(_size);
+        }
+    }
+
+    public class GridManager : MonoBehaviour
+    {
+        [SerializeField] private Transform _transform;
+        [SerializeField] private int _gridWidth;
+        [SerializeField] private int _gridHeight;
+
+        private Graph _blockGraph;
+        private Block[,] _blockGrid;
+        private int[] _gridColmunHeight;
+
+        private int[] dx = new int[4] { -1, 1, 0, 0 };
+        private int[] dy = new int[4] { 0, 0, -1, 1 };
+
+        public float GridWidth => _gridWidth;
+        public float GridHeight => _gridHeight;
+        private float startX => _transform.position.x;
+        private float startY => _transform.position.y;
+        private float endX => _transform.position.x + _gridWidth;
+        private float endY => _transform.position.y + _gridHeight;
+
+        public void Awake()
+        {
+            _blockGrid = new Block[_gridHeight, _gridWidth];
+            _blockGraph = new Graph(_gridWidth * _gridHeight, _gridWidth);
+            _gridColmunHeight = new int[_gridHeight-2]; //양옆값은 제거
+        }
+
+        public void AddBlockGraph(Block block, int x, int y)
+        {
+            Vector2 position =_transform.InverseTransformPoint(new Vector2(x, y));
+            _blockGrid[y, x] = block; //좌표와 행렬은 표현 방식이 반대
+
+            ConnectDirection blockConnection = block.GetConnectInfo();
+
+            int fromPoint = PositionConverter.Compression((int)position.x, (int)position.y, _gridWidth);
+            int toPoint = 0;
+            //왼쪽에 연결되어있으면
+            if ((blockConnection & ConnectDirection.Left) == ConnectDirection.Left)
+            {
+                //경계선 검사
+                if (x - 1 >= 0)
+                {
+                    toPoint = PositionConverter.Compression(x - 1, y, _gridWidth);
+
+                    _blockGraph.Append(fromPoint, toPoint);
+                }
+            }
+            //오른쪽에 연결되어있으면
+            if ((blockConnection & ConnectDirection.Right) == ConnectDirection.Right)
+            {
+                //경계선 검사
+                if (x + 1 <= _gridHeight)
+                {
+                    toPoint = PositionConverter.Compression(x + 1, y, _gridWidth);
+
+                    _blockGraph.Append(fromPoint, toPoint);
+                }
+            }
+            //위에 연결되어있으면
+            if ((blockConnection & ConnectDirection.Top) == ConnectDirection.Top)
+            {
+                toPoint = PositionConverter.Compression(x, y + 1, _gridWidth);
+
+                _blockGraph.Append(fromPoint, toPoint);
+            }
+            //아래에 연결되어있으면
+            if ((blockConnection & ConnectDirection.Bottom) == ConnectDirection.Bottom)
+            {
+                toPoint = PositionConverter.Compression(x, y - 1, _gridWidth);
+
+                _blockGraph.Append(fromPoint, toPoint);
+            }
+        }
+
+        public bool IsMovable(MoveDirection direction, ref Vector2 position)
+        {
+            if(direction == MoveDirection.Left || direction == MoveDirection.Right)
+            {
+                return IsHorizontalMovable(direction, ref position);
+            }
+            else if(direction == MoveDirection.Down)
+            {
+                return IsVerticalMovable(direction, ref position);
+            }
+            return false;
+        }
+
+        private bool IsHorizontalMovable(MoveDirection direction, ref Vector2 position)
+        {
+            position.x += dx[(int)direction];
+            position.y += dy[(int)direction];
+
+            if (position.x >= (startX + 1) && position.x <= (endX - 2) && position.y >= startY && position.y <= endY)
+            {
+                return true;
+            }
+            return false;
+        }
+
+        private bool IsVerticalMovable(MoveDirection direction, ref Vector2 position)
+        {
+            return false;
         }
     }
 }
