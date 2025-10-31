@@ -3,16 +3,15 @@ using UnityEngine;
 
 public class GrabController : MonoBehaviour
 {
-    [SerializeField] private GameObject _blockObj;
+    [SerializeField] private GridManager _gridManager;
+    [SerializeField] private Block _block;
     [SerializeField] private Transform _spawnTransform;
-
-    private Block _block;
 
     private void Awake()
     {
         _spawnTransform.gameObject.SetActive(false);
 
-        SetBlock(_blockObj.transform);
+        SetBlock(_block);
     }
 
     private void Update()
@@ -29,13 +28,16 @@ public class GrabController : MonoBehaviour
         {
             MoveController(MoveDirection.Left);
         }
+        else if (Input.GetKeyDown(KeyCode.Space))
+        {
+            MoveController(MoveDirection.Down);
+        }
     }
 
-    public void SetBlock(Transform blockTransform)
+    public void SetBlock(Block block)
     {
-        blockTransform.parent = transform;
-        blockTransform.position = _spawnTransform.position;
-        _block = blockTransform.GetComponent<Block>();
+        _block = block;
+        block.transform.position = _spawnTransform.position;
     }
 
     public void RotateBlock()

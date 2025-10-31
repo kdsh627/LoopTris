@@ -180,22 +180,44 @@ namespace Grid
 
         public float GridWidth => _gridWidth;
         public float GridHeight => _gridHeight;
-        private float startX => _transform.position.x;
-        private float startY => _transform.position.y;
-        private float endX => _transform.position.x + _gridWidth;
-        private float endY => _transform.position.y + _gridHeight;
+        private float startX = 0f;
+        private float endX => startX + _gridWidth;
 
         public void Awake()
         {
             _blockGrid = new Block[_gridHeight, _gridWidth];
             _blockGraph = new Graph(_gridWidth * _gridHeight, _gridWidth);
-            _gridColmunHeight = new int[_gridHeight-2]; //양옆값은 제거
+            _gridColmunHeight = new int[_gridHeight];
         }
 
-        public void AddBlockGraph(Block block, int x, int y)
+        public void ReserveGrid(Block block, Vector2 blockPosition)
         {
-            Vector2 position =_transform.InverseTransformPoint(new Vector2(x, y));
-            _blockGrid[y, x] = block; //좌표와 행렬은 표현 방식이 반대
+            Debug.Log("등록");
+
+            //해당 오브젝트 기준 로컬좌표계로 변환
+            Vector2 position = _transform.InverseTransformPoint(blockPosition);
+
+            int y = (int)position.x;
+            int x = (int)position.y;
+
+            _blockGrid[y, x] = block;
+        }
+
+        /// <summary>
+        /// 월드 좌표를 매개변수로 해당 자리에 블럭을 추가하는 로직
+        /// </summary>
+        /// <param name="block"></param>
+        /// <param name="x"></param>
+        /// <param name="y"></param>
+        public void AddBlockGraph(Block block, Vector2 blockPosition)
+        {
+            //해당 오브젝트 기준 로컬좌표계로 변환
+            Vector2 position = _transform.InverseTransformPoint(blockPosition);
+
+            int y = (int)position.x;
+            int x = (int)position.y;
+
+            _gridColmunHeight[x]++;
 
             ConnectDirection blockConnection = block.GetConnectInfo();
 
@@ -204,28 +226,40 @@ namespace Grid
             //왼쪽에 연결되어있으면
             if ((blockConnection & ConnectDirection.Left) == ConnectDirection.Left)
             {
-                //경계선 검사
-                if (x - 1 >= 0)
-                {
-                    toPoint = PositionConverter.Compression(x - 1, y, _gridWidth);
+                Debug.Log("왼쪽 연결");
 
-                    _blockGraph.Append(fromPoint, toPoint);
-                }
+                //경계선 검사
+                if (x - 1 < 0) return;
+
+                if (_blockGrid[y, x - 1] == null) return;
+
+                toPoint = PositionConverter.Compression(x - 1, y, _gridWidth);
+
+                _blockGraph.Append(fromPoint, toPoint);
             }
             //오른쪽에 연결되어있으면
             if ((blockConnection & ConnectDirection.Right) == ConnectDirection.Right)
             {
-                //경계선 검사
-                if (x + 1 <= _gridHeight)
-                {
-                    toPoint = PositionConverter.Compression(x + 1, y, _gridWidth);
+                Debug.Log("오른쪽 연결");
 
-                    _blockGraph.Append(fromPoint, toPoint);
-                }
+                //경계선 검사
+                if (x + 1 >= _gridWidth) return;
+
+                if (_blockGrid[y, x + 1] == null) return;
+
+                toPoint = PositionConverter.Compression(x + 1, y, _gridWidth);
+
+                _blockGraph.Append(fromPoint, toPoint);
             }
             //위에 연결되어있으면
             if ((blockConnection & ConnectDirection.Top) == ConnectDirection.Top)
             {
+                Debug.Log("위쪽 연결");
+
+                if (y + 1 >= _gridHeight) return;
+
+                if (_blockGrid[y + 1, x] == null) return;
+
                 toPoint = PositionConverter.Compression(x, y + 1, _gridWidth);
 
                 _blockGraph.Append(fromPoint, toPoint);
@@ -233,40 +267,76 @@ namespace Grid
             //아래에 연결되어있으면
             if ((blockConnection & ConnectDirection.Bottom) == ConnectDirection.Bottom)
             {
+                Debug.Log("아래쪽 연결");
+
+                //경계선 검사
+                if (y - 1 < 0) return;
+
+                if (_blockGrid[y - 1, x] == null) return;
+
                 toPoint = PositionConverter.Compression(x, y - 1, _gridWidth);
 
                 _blockGraph.Append(fromPoint, toPoint);
             }
         }
 
+        /// <summary>
+        /// 해당 좌표로 이동이 가능한가 반환
+        /// </summary>
+        /// <param name="direction"></param>
+        /// <param name="position"></param>
+        /// <returns></returns>
         public bool IsMovable(MoveDirection direction, ref Vector2 position)
         {
-            if(direction == MoveDirection.Left || direction == MoveDirection.Right)
+            Debug.Log(position);
+            //해당 오브젝트 기준 로컬좌표계로 변환
+            Vector2 localPosition = _transform.InverseTransformPoint(position);
+
+            if (direction == MoveDirection.Left || direction == MoveDirection.Right)
             {
-                return IsHorizontalMovable(direction, ref position);
+                if (IsHorizontalMovable((int)direction, ref localPosition))
+                {
+                    //다시 월드 좌표로 변환
+                    position = _transform.TransformPoint(localPosition);
+                    return true;
+                }
             }
-            else if(direction == MoveDirection.Down)
+            else if (direction == MoveDirection.Down)
             {
-                return IsVerticalMovable(direction, ref position);
+                if (IsVerticalMovable(ref localPosition))
+                {
+                    //다시 월드 좌표로 변환
+                    position = _transform.TransformPoint(localPosition);
+                    return true;
+                }
             }
+
             return false;
         }
 
-        private bool IsHorizontalMovable(MoveDirection direction, ref Vector2 position)
+        private bool IsHorizontalMovable(int direction, ref Vector2 position)
         {
-            position.x += dx[(int)direction];
-            position.y += dy[(int)direction];
+            position.x += dx[direction];
 
-            if (position.x >= (startX + 1) && position.x <= (endX - 2) && position.y >= startY && position.y <= endY)
+            Debug.Log(position);
+            if (position.x >= (startX + 1) && position.x <= (endX - 2))
             {
                 return true;
             }
             return false;
         }
 
-        private bool IsVerticalMovable(MoveDirection direction, ref Vector2 position)
+        private bool IsVerticalMovable(ref Vector2 position)
         {
-            return false;
+            int x = (int)position.x;
+            int y = (int)position.y;
+            //현재 열의 높이가 최대 높이를 넘으면
+            if (_gridColmunHeight[x] >= _gridHeight) return false;
+
+            if (_blockGrid[y, x] != null) return false;
+
+            position.y = _gridColmunHeight[x];
+            return true;
         }
     }
 }

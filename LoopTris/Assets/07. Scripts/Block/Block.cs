@@ -64,48 +64,51 @@ public class Block : MonoBehaviour
         isRotate = false;
     }
 
-    public void Move(MoveDirection direction)
+    public async void Move(MoveDirection direction)
     {
         if (isMove) return;
 
         isMove = true;
 
-        switch (direction)
+        Vector2 position = _transform.position;
+        if (_gridManager.IsMovable(direction, ref position))
         {
-            case MoveDirection.Left:
-            case MoveDirection.Right:
-                Vector2 position = _transform.position;
-                if (_gridManager.IsMovable(direction, ref position))
-                {
-                    HorizontalMove_Task(position.x).Forget();
-;                }
-                else
-                {
-                    isMove = false;
-                }
-                break;
-            case MoveDirection.Down:
-
-                break;
-            default:
-                return;
+            switch (direction)
+            {
+                case MoveDirection.Left:
+                case MoveDirection.Right:
+                    await HorizontalMove_Task(position.x);
+                    break;
+                case MoveDirection.Down:
+                    Debug.Log("뭐지");
+                    _gridManager.ReserveGrid(this, position);
+                    await VerticalMove_Task(position.y);
+                    _gridManager.AddBlockGraph(this, position);
+                    break;
+                default:
+                    return;
+            }
+        }
+        else
+        {
+            Debug.Log("실패");
+            isMove = false;
         }
     }
 
-    public async UniTaskVoid HorizontalMove_Task(float moveAmount)
+    public async UniTask HorizontalMove_Task(float endValue)
     {
-        await _transform.DOMoveX(moveAmount, _horizontalMoveDuration)
-            .SetEase(Ease.InOutCirc)
+        await _transform.DOMoveX(endValue, _horizontalMoveDuration)
+            .SetEase(Ease.InCirc)
             .ToUniTask(cancellationToken: this.destroyCancellationToken);
 
         isMove = false;
     }
 
-    public async UniTaskVoid VerticalMove_Task(Transform transform, float moveAmount)
+    public async UniTask VerticalMove_Task(float endValue)
     {
-        await transform.DOMoveX(moveAmount, _horizontalMoveDuration)
-            .SetEase(Ease.InOutCirc)
-            .SetRelative(true)
+        await _transform.DOMoveY(endValue, _verticalMoveDuration)
+            .SetEase(Ease.InCirc)
             .ToUniTask(cancellationToken: this.destroyCancellationToken);
 
         isMove = false;
